@@ -1,0 +1,128 @@
+<!--index.wxml-->
+<navigation-bar title="羽毛球 AA" back="{{false}}" color="white" background="#7c5ce7"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y scroll-into-view="{{scrollTarget}}">
+
+  <view class="hero">
+    <view class="hero-icon">🏸</view>
+    <view class="hero-text">
+      <view class="hero-title">羽毛球 AA 计算器</view>
+      <view class="hero-sub">填费用 · 贴名单 · 每个人的账一眼看清</view>
+    </view>
+  </view>
+
+  <!-- 1. 场次与场地费 -->
+  <view class="card">
+    <view class="card-head"><view class="step">1</view><view class="card-title">场次与场地费</view><view class="card-tip">开始时间可留空自动识别</view></view>
+    <view class="setup">
+      <view class="setup-item">
+        <view class="label">场次时长</view>
+        <picker mode="selector" range="{{durations}}" value="{{durationIndex}}" bindchange="onDurationChange">
+          <view class="picker-box">{{durations[durationIndex]}}<text class="picker-arrow">▾</text></view>
+        </picker>
+      </view>
+      <view class="setup-item">
+        <view class="label">开始时间</view>
+        <input class="input" type="number" placeholder="如 12 或 18" value="{{startHour}}" bindinput="onStartHourInput" />
+      </view>
+    </view>
+    <view class="fee-list">
+      <view class="fee-row" wx:for="{{feeLabels}}" wx:key="index">
+        <view class="fee-time"><view class="fee-idx s{{index % 6}}">{{index + 1}}</view><text>{{item}}</text></view>
+        <view class="fee-money"><text class="yuan">¥</text><input class="fee-input" type="digit" placeholder="场地费" value="{{fees[index]}}" data-index="{{index}}" bindinput="onFeeInput" /></view>
+      </view>
+    </view>
+    <view class="hint">每个时段填该时段的场地总费用；同一时段多个场地请填合计。</view>
+  </view>
+
+  <!-- 2. 额外费用 -->
+  <view class="card">
+    <view class="card-head"><view class="step">2</view><view class="card-title">额外费用</view><view class="card-tip">可选，如球费</view></view>
+    <view class="extra-head"><text>名称</text><text>金额</text><text>分摊方式</text><text></text></view>
+    <view class="extra-row" wx:for="{{extras}}" wx:key="index">
+      <input class="input small" placeholder="如 球费" value="{{item.name}}" data-index="{{index}}" bindinput="onExtraNameInput" />
+      <input class="input small" type="digit" placeholder="金额" value="{{item.amount}}" data-index="{{index}}" bindinput="onExtraAmountInput" />
+      <picker mode="selector" range="{{modeLabels}}" value="{{item.modeIndex}}" data-index="{{index}}" bindchange="onExtraModeChange">
+        <view class="picker-box small">{{modeLabels[item.modeIndex]}}<text class="picker-arrow">▾</text></view>
+      </picker>
+      <view class="remove-btn" data-index="{{index}}" bindtap="removeExtra">×</view>
+    </view>
+    <view class="add-btn" bindtap="addExtra">＋ 添加一项</view>
+    <view class="hint"><text class="hl">按人次</text>＝每个上场的人（含 +1）各一份；<text class="hl">按收款人</text>＝每个报名的人各一份。金额留空自动忽略。</view>
+  </view>
+
+  <!-- 3. 名单 -->
+  <view class="card">
+    <view class="card-head"><view class="step">3</view><view class="card-title">接龙名单</view><view class="card-tip">直接粘贴</view></view>
+    <textarea class="roster" value="{{roster}}" placeholder="粘贴接龙名单" bindinput="onRosterInput" auto-height="{{false}}" maxlength="-1" />
+    <view class="hint">人数 <text class="hl">+1 / 加1 / 带2人 / 2人</text> 均可；时段 <text class="hl">（1-3点）/（1点到3点）/（12:00-15:00）/（全场）</text> 均可，没写默认全场。</view>
+    <view class="actions">
+      <view class="btn btn-primary" bindtap="onCalculate">计算应收金额</view>
+      <view class="btn btn-line" bindtap="onReset">清空重填</view>
+    </view>
+    <view class="error" wx:if="{{errorMsg}}">{{errorMsg}}</view>
+  </view>
+
+  <!-- 4. 结果 -->
+  <view class="card result-card" id="result" wx:if="{{showResult && result}}">
+    <view class="card-head"><view class="step done">✓</view><view class="card-title">收费结果</view><view class="card-tip">改输入会自动更新</view></view>
+
+    <view class="summary">
+      <view class="metric main"><view class="metric-label">费用总计</view><view class="metric-value">{{result.total}}</view></view>
+      <view class="metric alt1"><view class="metric-label">参与人次</view><view class="metric-value">{{result.peopleText}}</view></view>
+      <view class="metric alt2"><view class="metric-label">收款人数</view><view class="metric-value">{{result.payersText}}</view></view>
+    </view>
+
+    <view class="section-title">
+      <text>每人应收</text>
+      <text class="count-tag">{{result.payersText}} 人</text>
+      <text class="copy-btn" bindtap="onCopyBill">复制清单</text>
+    </view>
+
+    <view class="people">
+      <view class="person" wx:for="{{result.personRows}}" wx:key="index">
+        <view class="person-top">
+          <view class="avatar">{{item.avatar}}</view>
+          <view class="person-who">
+            <view class="person-name">{{item.name}}</view>
+            <view class="person-sub">{{item.sub}}</view>
+          </view>
+          <view class="person-amount">{{item.amountText}}</view>
+        </view>
+        <view class="chips">
+          <text class="chip {{chip.cls}}" wx:for="{{item.chips}}" wx:for-item="chip" wx:key="index">{{chip.text}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="sub-block">
+      <view class="sub-title">各时段分摊</view>
+      <view class="slot-cards">
+        <view class="slot-card {{item.cls}}" wx:for="{{result.slotCards}}" wx:key="index">
+          <view class="slot-label">{{item.label}}</view>
+          <view class="slot-time">{{item.time}}</view>
+          <view class="slot-fee">{{item.feeText}}</view>
+          <view class="slot-share">{{item.shareText}}</view>
+          <view class="who-chips"><text class="who-chip" wx:for="{{item.whoChips}}" wx:for-item="who" wx:key="index">{{who}}</text></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="sub-block" wx:if="{{result.showExtras}}">
+      <view class="sub-title">额外费用</view>
+      <view class="extra-line" wx:for="{{result.extraLines}}" wx:key="index">
+        <text>{{item.left}}</text><text class="extra-right">{{item.right}}</text>
+      </view>
+    </view>
+
+    <view class="note">场地费按每个时段独立均摊，额外费用按所选方式分摊；分币误差用「最大余额法」逐分分配，确保应收合计＝费用总计。</view>
+    <view class="share-btn" bindtap="onShareBill">
+      <text class="share-ico">↗</text>
+      <view class="share-txt"><view class="share-title">分享账单图片</view><view class="share-sub">生成一张图，发给朋友或存相册</view></view>
+    </view>
+  </view>
+
+  <view class="footer">🏸 打球愉快，账目清爽</view>
+</scroll-view>
+
+<!-- 离屏画布：按需创建，避免渲染层 canvas 初始化报错 -->
+<canvas wx:if="{{canvasShow}}" type="2d" id="billCanvas" class="bill-canvas"></canvas>
